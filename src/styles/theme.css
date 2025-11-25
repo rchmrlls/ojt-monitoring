@@ -1,0 +1,177 @@
+/* =====================================
+   GLOBAL BASE STYLES — LIGHT MODE
+===================================== */
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: #f8faff;
+  color: #1f2937;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove harsh Bootstrap colors */
+a, a:hover {
+  color: #1e4d92;
+  text-decoration: none;
+}
+
+/* =====================================
+   NAVBAR
+===================================== */
+.navbar-custom {
+  background-color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  padding: 12px 20px;
+}
+
+.navbar-brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: #1e4d92 !important;
+}
+
+.navbar-brand span {
+  color: #e63946;
+}
+
+/* =====================================
+   SIDEBAR (Light Variant)
+===================================== */
+.sidebar {
+  background-color: #ffffff;
+  border-right: 1px solid #e0e6f5;
+  height: 100vh;
+  width: 240px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding: 1.5rem 0;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.03);
+}
+
+.sidebar .nav-link {
+  color: #1f2937;
+  padding: 10px 20px;
+  display: block;
+  transition: all 0.3s ease;
+  border-left: 4px solid transparent;
+  font-weight: 500;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+  background-color: #f0f4ff;
+  color: #1e4d92;
+  border-left: 4px solid #e63946;
+}
+
+/* =====================================
+   DASHBOARD CARDS
+===================================== */
+.summary-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+  padding: 20px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-top: 4px solid #1e4d92;
+}
+
+.summary-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+.summary-card h4 {
+  font-weight: 600;
+  color: #1e4d92;
+  margin-bottom: 10px;
+}
+
+.summary-card .count {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #e63946;
+}
+
+/* =====================================
+   TABLES
+===================================== */
+.table {
+  background-color: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e0e6f5;
+}
+
+.table th {
+  background-color: #1e4d92;
+  color: #ffffff;
+  text-align: center;
+}
+
+.table td {
+  text-align: center;
+  vertical-align: middle;
+  color: #374151;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f0f4ff;
+}
+
+/* =====================================
+   BUTTONS
+===================================== */
+.btn-primary {
+  background-color: #1e4d92 !important;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+}
+
+.btn-danger {
+  background-color: #e63946 !important;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+}
+
+.btn-primary:hover,
+.btn-danger:hover {
+  opacity: 0.9;
+}
+
+/* =====================================
+   MODALS
+===================================== */
+.modal-content {
+  border-radius: 10px;
+  border: 1px solid #e0e6f5;
+  background-color: #ffffff;
+}
+
+.modal-header {
+  background-color: #1e4d92;
+  color: #ffffff;
+  border-bottom: none;
+}
+
+.modal-footer {
+  border-top: none;
+  background-color: #f9fbff;
+}
+
+/* =====================================
+   FORM ELEMENTS
+===================================== */
+.form-control, .form-select {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #1e4d92;
+  box-shadow: 0 0 0 2px rgba(30, 77, 146, 0.2);
+}
