@@ -1,10 +1,20 @@
 import React, { useEffect, useState } from "react";
-import { Table, ProgressBar, Button, Card, Row, Col, Form, Badge } from "react-bootstrap";
+import { Table, ProgressBar, Button, Row, Col, Form, Badge } from "react-bootstrap";
+import { 
+  PersonFill, 
+  BuildingFill, 
+  EnvelopeFill, 
+  CardChecklist, 
+  FileEarmarkTextFill, 
+  CheckCircleFill, 
+  CloudUploadFill 
+} from "react-bootstrap-icons";
 import axios from "axios";
 import Swal from "sweetalert2";
 import Navbar from "../components/Navbar";
 
 const API_BASE = "http://localhost/ojt_monitoring/backend/api";
+const FILE_BASE_URL = "http://localhost/ojt_monitoring/backend"; 
 
 const StudentDashboard = () => {
   const [student, setStudent] = useState(null);
@@ -16,7 +26,7 @@ const StudentDashboard = () => {
 
   const storedUser = JSON.parse(localStorage.getItem("user"));
 
-  // Fetch student ID
+  // --- FETCH LOGIC (Unchanged) ---
   useEffect(() => {
     const fetchStudentId = async () => {
       if (!storedUser) {
@@ -47,7 +57,6 @@ const StudentDashboard = () => {
     fetchStudentId();
   }, [storedUser]);
 
-  // Fetch profile + requirements
   useEffect(() => {
     if (!studentId) return;
 
@@ -66,12 +75,10 @@ const StudentDashboard = () => {
         }
       } catch (err) {
         console.error("Error loading dashboard:", err);
-        alert("Failed to connect to the server.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [studentId]);
 
@@ -81,11 +88,22 @@ const StudentDashboard = () => {
     setProgress(total ? Math.round((completed / total) * 100) : 0);
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "—";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+  };
+
+  const getFileName = (path) => {
+    if (!path) return "";
+    return path.split('/').pop();
+  };
+
   const handleUpload = async (e, requirement_id) => {
     const file = e.target.files[0];
     if (!file || !studentId) return;
 
-    // Confirmation before upload
     const confirmUpload = await Swal.fire({
       title: "Upload File?",
       text: `Are you sure you want to upload "${file.name}"?`,
@@ -95,7 +113,6 @@ const StudentDashboard = () => {
       cancelButtonText: "Cancel",
     });
 
-    // Cancel upload
     if (!confirmUpload.isConfirmed) {
       e.target.value = "";
       return;
@@ -123,7 +140,14 @@ const StudentDashboard = () => {
         });
 
         const updated = requirements.map(r =>
-          r.requirement_id === requirement_id ? { ...r, status: "Submitted" } : r
+          r.requirement_id === requirement_id 
+            ? { 
+                ...r, 
+                status: "Submitted", 
+                file_path: res.data.file_path,
+                uploaded_at: new Date().toISOString() 
+              } 
+            : r
         );
         setRequirements(updated);
         calculateProgress(updated);
@@ -135,128 +159,180 @@ const StudentDashboard = () => {
         });
       }
     } catch (err) {
-      console.error("Upload error:", err);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Error uploading file. Please try again."
-      });
+      Swal.fire({ icon: "error", title: "Error", text: "Error uploading file." });
     } finally {
       setUploading(false);
       e.target.value = "";
     }
   };
 
-  // Logout handler
-  const handleLogout = async () => {
-    try {
-      await axios.get(`${API_BASE}/auth/logout.php`);
-    } catch (err) {
-      console.error("Logout failed:", err);
-    } finally {
-      localStorage.removeItem("user");
-      window.location.href = "/";
-    }
-  };
-
   if (loading) {
     return (
-      <div className="text-center mt-5">
+      <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
         <div className="spinner-border text-primary" role="status"></div>
-        <p className="mt-2 text-muted">Loading your dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-light min-vh-100">
+    <div style={{ backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
       <Navbar user={{ name: student?.name || "Student" }} />
-      <div className="container mt-4 mb-5">
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h3 className="fw-bold text-primary">Student Dashboard</h3>
-          <Button variant="outline-danger" onClick={handleLogout}>
-            Logout
-          </Button>
-        </div>
+      
+      <div className="container py-4">
+        
+        {/* ROW 1: Profile & Progress */}
+        <Row className="mb-4 g-4">
+          <Col lg={8}>
+            <div className="card border-0 shadow-sm rounded-4 h-100 p-4">
+               <div className="d-flex align-items-center mb-4">
+                  <div className="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
+                     <PersonFill size={28} className="text-primary" />
+                  </div>
+                  <div>
+                     <h4 className="fw-bold mb-0 text-dark">Student Profile</h4>
+                     <small className="text-muted">Manage your information and status</small>
+                  </div>
+               </div>
 
-        {/* Student Info Card */}
-        <Card className="shadow-sm border-0 mb-4">
-          <Card.Body>
-            <Row>
-              <Col md={6}>
-                <p><strong>Name:</strong> {student?.name}</p>
-                <p><strong>Email:</strong> {student?.email}</p>
-                <p><strong>Student No:</strong> {student?.student_no}</p>
-              </Col>
-              <Col md={6}>
-                <p><strong>Course:</strong> {student?.course}</p>
-                <p><strong>Year & Section:</strong> {student?.year_level} - {student?.section}</p>
-                <p><strong>Company:</strong> {student?.company_name || "Not Assigned"}</p>
-              </Col>
-            </Row>
-          </Card.Body>
-        </Card>
+               <Row className="g-3">
+                  <Col md={6}>
+                     <div className="p-3 bg-light rounded-3">
+                        <small className="text-uppercase text-muted fw-bold" style={{fontSize: '0.7rem'}}>Full Name</small>
+                        <div className="fw-semibold text-dark d-flex align-items-center mt-1">
+                           <PersonFill className="me-2 text-secondary" /> {student?.name}
+                        </div>
+                     </div>
+                  </Col>
+                  <Col md={6}>
+                     <div className="p-3 bg-light rounded-3">
+                        <small className="text-uppercase text-muted fw-bold" style={{fontSize: '0.7rem'}}>Email Address</small>
+                        <div className="fw-semibold text-dark d-flex align-items-center mt-1">
+                           <EnvelopeFill className="me-2 text-secondary" /> {student?.email}
+                        </div>
+                     </div>
+                  </Col>
+                  <Col md={6}>
+                     <div className="p-3 bg-light rounded-3">
+                        <small className="text-uppercase text-muted fw-bold" style={{fontSize: '0.7rem'}}>Course & Section</small>
+                        <div className="fw-semibold text-dark mt-1">
+                           {student?.course} <span className="text-muted mx-1">•</span> {student?.year_level} - {student?.section}
+                        </div>
+                     </div>
+                  </Col>
+                  <Col md={6}>
+                     <div className="p-3 bg-light rounded-3">
+                        <small className="text-uppercase text-muted fw-bold" style={{fontSize: '0.7rem'}}>Deployment Company</small>
+                        <div className="fw-semibold text-dark d-flex align-items-center mt-1">
+                           <BuildingFill className="me-2 text-secondary" /> 
+                           {
+                             (student?.deployment_status === 'Deployed' || student?.deployment_status === 'Completed') 
+                             ? (student?.company_name || "Not Assigned") 
+                             : <span className="text-muted fst-italic">Not yet deployed</span>
+                           }
+                        </div>
+                     </div>
+                  </Col>
+               </Row>
+            </div>
+          </Col>
 
-        {/* Overall Progress */}
-        <Card className="shadow-sm border-0 mb-4">
-          <Card.Body>
-            <h6 className="fw-bold mb-2 text-secondary">Overall Progress</h6>
-            <ProgressBar now={progress} label={`${progress}%`} variant={progress === 100 ? "success" : "info"} />
-          </Card.Body>
-        </Card>
+          <Col lg={4}>
+             <div className="card border-0 shadow-sm rounded-4 h-100 p-4 bg-primary text-white position-relative overflow-hidden">
+                <div className="position-relative z-1">
+                   <h5 className="fw-bold mb-4 opacity-75">OJT Completion Status</h5>
+                   <div className="display-4 fw-bold mb-2">{progress}%</div>
+                   <ProgressBar now={progress} variant="light" style={{ height: "8px", backgroundColor: "rgba(255,255,255,0.2)" }} />
+                   <div className="mt-3 small opacity-75">
+                      {progress === 100 ? "Congratulations! You have completed all requirements." : "Keep it up! Complete your remaining tasks."}
+                   </div>
+                </div>
+                <CheckCircleFill size={150} className="position-absolute bottom-0 end-0 opacity-10" style={{ transform: "translate(30%, 30%)" }} />
+             </div>
+          </Col>
+        </Row>
 
-        {/* Requirements Checklist */}
-        <Card className="shadow-sm border-0">
-          <Card.Header className="fw-bold bg-primary text-white">My Requirements Checklist</Card.Header>
-          <Card.Body>
-            <Table bordered hover responsive className="align-middle">
-              <thead className="table-light">
-                <tr>
-                  <th>#</th>
-                  <th>Requirement</th>
-                  <th>Description</th>
-                  <th>Status</th>
-                  <th>Upload File</th>
-                </tr>
+        {/* ROW 2: Requirements Table (Standard Bootstrap Table) */}
+        <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
+           <div className="card-header bg-white py-3 px-4 border-0 d-flex justify-content-between align-items-center">
+              <div className="d-flex align-items-center">
+                 <CardChecklist className="text-primary me-2" size={22} />
+                 <h5 className="mb-0 fw-bold text-dark">Requirements Checklist</h5>
+              </div>
+           </div>
+
+           {/* MODIFIED: Added striped and bordered props */}
+           <Table striped bordered hover responsive className="align-middle mb-0">
+              <thead className="bg-light">
+                 <tr>
+                    <th className="ps-4">Requirement</th>
+                    <th>Description</th>
+                    <th className="text-center">Status</th>
+                    <th>Date Submitted</th>
+                    <th>Action</th>
+                 </tr>
               </thead>
               <tbody>
-                {requirements.length > 0 ? (
-                  requirements.map((req, index) => (
-                    <tr key={req.requirement_id}>
-                      <td>{index + 1}</td>
-                      <td>{req.requirement_name}</td>
-                      <td>{req.description || "—"}</td>
-                      <td>
-                        <Badge bg={req.status === "Completed" || req.status === "Submitted" ? "success" : "secondary"}>
-                          {req.status || "Pending"}
-                        </Badge>
-                      </td>
-                      <td>
-                        {req.status === "Completed" ? (
-                          <Button size="sm" variant="success" disabled>Verified ✓</Button>
-                        ) : (
-                          <Form.Group controlId={`upload-${req.requirement_id}`}>
-                            <Form.Control
-                              type="file"
-                              size="sm"
-                              accept=".pdf,.doc,.docx"
-                              onChange={(e) => handleUpload(e, req.requirement_id)}
-                              disabled={uploading}
-                            />
-                          </Form.Group>
-                        )}
-                      </td>
+                 {requirements.length > 0 ? (
+                    requirements.map((req) => (
+                       <tr key={req.requirement_id}>
+                          <td className="ps-4 fw-medium text-dark">
+                             {req.requirement_name}
+                          </td>
+                          <td className="text-muted small" style={{maxWidth: '250px'}}>
+                             {req.description || "—"}
+                          </td>
+                          <td className="text-center">
+                             <Badge 
+                                bg={req.status === "Completed" ? "success" : req.status === "Submitted" ? "primary" : "secondary"} 
+                                className="rounded-pill px-3 fw-normal"
+                             >
+                                {req.status || "Pending"}
+                             </Badge>
+                          </td>
+                          <td className="text-muted small">
+                             {formatDate(req.uploaded_at)}
+                          </td>
+                          <td>
+                             <div className="d-flex flex-column gap-2">
+                                {/* File Link */}
+                                {req.file_path && (
+                                   <a href={`${FILE_BASE_URL}/${req.file_path}`} target="_blank" rel="noreferrer" className="text-decoration-none small fw-bold text-primary d-flex align-items-center">
+                                      <FileEarmarkTextFill className="me-1" /> {getFileName(req.file_path)}
+                                   </a>
+                                )}
+
+                                {/* Upload Input */}
+                                {req.status !== "Completed" && (
+                                   <Form.Group controlId={`upload-${req.requirement_id}`}>
+                                      <div className="d-flex align-items-center">
+                                          <Form.Control
+                                             type="file"
+                                             size="sm"
+                                             accept=".pdf,.doc,.docx"
+                                             onChange={(e) => handleUpload(e, req.requirement_id)}
+                                             disabled={uploading}
+                                             className="me-2"
+                                          />
+                                          {uploading && <div className="spinner-border spinner-border-sm text-primary"></div>}
+                                      </div>
+                                   </Form.Group>
+                                )}
+                                {req.status === "Completed" && (
+                                    <span className="text-success small fw-bold"><CheckCircleFill className="me-1"/>Verified</span>
+                                )}
+                             </div>
+                          </td>
+                       </tr>
+                    ))
+                 ) : (
+                    <tr>
+                       <td colSpan="5" className="text-center py-5 text-muted">No requirements found.</td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="5" className="text-center text-muted">No requirements found.</td>
-                  </tr>
-                )}
+                 )}
               </tbody>
-            </Table>
-          </Card.Body>
-        </Card>
+           </Table>
+        </div>
+
       </div>
     </div>
   );

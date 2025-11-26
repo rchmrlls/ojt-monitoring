@@ -273,7 +273,7 @@ function AdminStudents() {
         >
           <thead>
             <tr>
-              <th>Student No</th>
+              <th>USN</th>
               <th>Full Name</th>
               <th>Email</th>
               <th>Course</th>
@@ -446,7 +446,7 @@ function AdminStudents() {
                 </Form.Group>
 
             <Form.Group className="mb-2">
-              <Form.Label>Student No</Form.Label>
+              <Form.Label>USN</Form.Label>
               <Form.Control
                 value={formData.student_no}
                 onChange={(e) =>
