@@ -7,9 +7,6 @@ header("Content-Type: application/json");
 $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
-  // =====================================================
-  // GET — Fetch all requirements for a given student
-  // =====================================================
   case 'GET':
     $studentId = $_GET['student_id'] ?? null;
 
@@ -19,7 +16,6 @@ switch ($method) {
     }
 
     try {
-      // Ensure all requirements exist for this student
       $assignMissing = $conn->prepare("
         INSERT INTO student_requirements (student_id, requirement_id, status)
         SELECT ?, r.id, 'Pending'
@@ -30,13 +26,14 @@ switch ($method) {
       ");
       $assignMissing->execute([$studentId, $studentId]);
 
-      // Fetch requirements with student-specific status
       $stmt = $conn->prepare("
         SELECT 
           r.id AS requirement_id,
           r.name AS requirement_name,
           r.description,
           COALESCE(sr.status, 'Pending') AS status,
+          sr.uploaded_at, 
+          sr.file_path,
           sr.submitted_at,
           sr.verified_at,
           sr.verified_by
@@ -54,9 +51,6 @@ switch ($method) {
     }
     break;
 
-  // =====================================================
-  // PUT — Update a specific requirement status
-  // =====================================================
   case 'PUT':
     $input = json_decode(file_get_contents("php://input"), true);
     $studentId = $input['student_id'] ?? null;
@@ -69,11 +63,20 @@ switch ($method) {
     }
 
     try {
-      $stmt = $conn->prepare("
-        UPDATE student_requirements
-        SET status = ?, submitted_at = NOW()
-        WHERE student_id = ? AND requirement_id = ?
-      ");
+      if ($status === 'Pending') {
+          $stmt = $conn->prepare("
+            UPDATE student_requirements
+            SET status = ?, submitted_at = NULL
+            WHERE student_id = ? AND requirement_id = ?
+          ");
+      } else {
+          $stmt = $conn->prepare("
+            UPDATE student_requirements
+            SET status = ?, submitted_at = NOW()
+            WHERE student_id = ? AND requirement_id = ?
+          ");
+      }
+      
       $stmt->execute([$status, $studentId, $requirementId]);
 
       echo json_encode(['success' => true, 'message' => 'Requirement status updated successfully.']);
@@ -82,9 +85,6 @@ switch ($method) {
     }
     break;
 
-  // =====================================================
-  // POST — Reset weekly report status for all students
-  // =====================================================
   case 'POST':
     $action = $_GET['action'] ?? '';
 

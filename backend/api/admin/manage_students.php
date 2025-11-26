@@ -7,35 +7,38 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
 
-  // GET: Fetch all students with linked user and company data
+  // GET: Fetch all students
   case 'GET':
-    try {
-      $stmt = $conn->query("
-        SELECT 
-          s.id AS student_id,
-          s.student_no,
-          s.course,
-          s.year_level,
-          s.section,
-          s.contact_no,
-          s.address,
-          s.deployment_status,
-          u.id AS user_id,
-          u.name AS full_name,
-          u.email,
-          u.status AS user_status,
-          c.id AS company_id,
-          c.name AS company_name
-        FROM students s
-        INNER JOIN users u ON s.user_id = u.id
-        LEFT JOIN companies c ON s.company_id = c.id
-        ORDER BY s.id DESC
-      ");
-      echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
-    } catch (Exception $e) {
-      echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-    }
-    break;
+        try {
+            $sql = "
+                SELECT 
+                    s.id AS student_id,
+                    s.student_no,
+                    s.course,
+                    s.year_level,
+                    s.section,
+                    s.company_id,
+                    s.deployment_status,
+                    u.name AS full_name,
+                    u.email,
+                    c.name AS company_name,
+                    (SELECT COUNT(*) FROM student_requirements sr 
+                     WHERE sr.student_id = s.id AND sr.status = 'Submitted') as pending_files
+                FROM students s
+                JOIN users u ON s.user_id = u.id
+                LEFT JOIN companies c ON s.company_id = c.id
+                ORDER BY pending_files DESC, u.name ASC
+            ";
+            
+            $stmt = $conn->prepare($sql);
+            $stmt->execute();
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(['success' => true, 'data' => $data]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        break;
 
   // POST: Add new student (auto-create linked user)
   case 'POST':
