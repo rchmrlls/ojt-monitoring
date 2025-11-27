@@ -21,7 +21,6 @@ const Navbar = ({ user }) => {
     <nav className="navbar navbar-custom d-flex justify-content-between align-items-center mb-4">
       <div>
         <h5 className="mb-0 fw-bold text-dark">Welcome back, {user?.name || "Admin"}!</h5>
-        <small className="text-muted">Here's what's happening today.</small>
       </div>
 
       <Dropdown>

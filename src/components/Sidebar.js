@@ -1,13 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { 
-  Grid1x2Fill, 
-  PeopleFill, 
-  PersonBadgeFill, 
-  BuildingFill, 
-  FileEarmarkTextFill, 
-  PersonVideo3 
-} from "react-bootstrap-icons";
+import { Grid1x2Fill, PeopleFill, PersonBadgeFill, BuildingFill, FileEarmarkTextFill, PersonVideo3, ListCheck } from "react-bootstrap-icons";
 
 const Sidebar = () => {
   const location = useLocation();
@@ -30,12 +23,15 @@ const Sidebar = () => {
         <Link to="/admin/students" className={`nav-link ${isActive("/admin/students") ? "active" : ""}`}>
           <PeopleFill size={18} className="me-3" /> Manage Students
         </Link>
-        <Link to="/admin/advisors" className={`nav-link ${isActive("/admin/advisors") ? "active" : ""}`}>
-          <PersonBadgeFill size={18} className="me-3" /> Manage Advisors
-        </Link>
         <Link to="/admin/companies" className={`nav-link ${isActive("/admin/companies") ? "active" : ""}`}>
           <BuildingFill size={18} className="me-3" /> Manage Companies
         </Link>
+        <Link to="/admin/requirements" className={`nav-link ${isActive("/admin/requirements") ? "active" : ""}`}>
+          <ListCheck size={18} className="me-3" /> Manage Requirements
+        </Link>
+        {/*<Link to="/admin/advisors" className={`nav-link ${isActive("/admin/advisors") ? "active" : ""}`}>
+          <PersonBadgeFill size={18} className="me-3" /> Manage Advisors
+        </Link>*/}
         {/*<Link to="/admin/supervisors" className={`nav-link ${isActive("/admin/supervisors") ? "active" : ""}`}>
           <PersonVideo3 size={18} className="me-3" /> Manage Supervisors
         </Link>

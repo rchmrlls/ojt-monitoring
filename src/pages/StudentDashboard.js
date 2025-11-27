@@ -26,7 +26,7 @@ const StudentDashboard = () => {
 
   const storedUser = JSON.parse(localStorage.getItem("user"));
 
-  // --- FETCH LOGIC (Unchanged) ---
+  //  FETCH LOGIC
   useEffect(() => {
     const fetchStudentId = async () => {
       if (!storedUser) {

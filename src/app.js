@@ -7,6 +7,7 @@ import AdminAdvisors from "./pages/admin/AdminAdvisors";
 import AdminCompanies from "./pages/admin/AdminCompanies";
 import AdminSupervisors from "./pages/admin/AdminSupervisors";
 import StudentDashboard from "./pages/StudentDashboard";
+import AdminRequirements from "./pages/admin/AdminRequirements";
 import './styles/theme.css';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
         <Route path="/admin/students" element={<AdminStudents />} />
         <Route path="/admin/advisors" element={<AdminAdvisors />} />
         <Route path="/admin/companies" element={<AdminCompanies />} />
+        <Route path="/admin/requirements" element={<AdminRequirements />} />
         <Route path="/admin/supervisors" element={<AdminSupervisors />} />
         <Route path="/StudentDashboard" element={<StudentDashboard />} />
       </Routes>

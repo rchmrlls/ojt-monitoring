@@ -1,20 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import Swal from "sweetalert2"; // Import SweetAlert2
+import Swal from "sweetalert2";
 import { Button, Modal, Form, Table, Row, Col, InputGroup, Badge } from "react-bootstrap";
-import { PersonBadgeFill, BuildingFill, Search, ChevronLeft, ChevronRight, PlusLg, CheckCircleFill, XCircleFill, PencilSquare, Trash } from "react-bootstrap-icons";
+import { ListCheck, Search, ChevronLeft, ChevronRight, PlusLg, PencilSquare, Trash, CheckCircleFill, ExclamationCircleFill } from "react-bootstrap-icons";
 import Sidebar from "../../components/Sidebar";
 import Navbar from "../../components/Navbar";
 import SummaryCard from "../../components/SummaryCard";
 
-const API_URL = "http://localhost/ojt_monitoring/backend/api/admin/manage_advisors.php";
+const API_URL = "http://localhost/ojt_monitoring/backend/api/admin/manage_requirements.php";
 
-function AdminAdvisors() {
+function AdminRequirements() {
   const navigate = useNavigate();
   
   // Data States
-  const [advisors, setAdvisors] = useState([]);
+  const [requirements, setRequirements] = useState([]);
   
   // UI States
   const [loading, setLoading] = useState(true);
@@ -29,122 +29,114 @@ function AdminAdvisors() {
   // Form State
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
-    department: "",
-    status: "Active",
+    description: "",
+    type: "Mandatory", // Default value
   });
 
   // User Session
   const user = { name: "Admin" };
 
   //  Fetch Data 
-  const fetchAdvisors = async () => {
+  const fetchRequirements = async () => {
     setLoading(true);
     try {
       const res = await axios.get(API_URL);
-      if (res.data.success) setAdvisors(res.data.data);
-      else setAdvisors([]);
+      if (res.data.success) {
+        setRequirements(res.data.data);
+      } else {
+        setRequirements([]);
+      }
     } catch (err) {
-      console.error("Error fetching advisors:", err);
+      console.error("Error fetching requirements:", err);
+      // Optionally show error alert
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAdvisors();
+    fetchRequirements();
   }, []);
 
   //  Computed Stats 
   const stats = {
-    total: advisors.length,
-    active: advisors.filter(a => a.user_status === 'Active').length,
-    inactive: advisors.filter(a => a.user_status !== 'Active').length,
-    departments: [...new Set(advisors.map(a => a.department).filter(Boolean))].length
+    total: requirements.length,
+    mandatory: requirements.filter(r => r.type === 'Mandatory').length,
+    optional: requirements.filter(r => r.type === 'Optional').length,
   };
 
   //  Filtering & Pagination 
-  const filteredAdvisors = advisors.filter((advisor) => {
+  const filteredRequirements = requirements.filter((req) => {
     const searchLower = searchTerm.toLowerCase();
     return (
-      advisor.full_name?.toLowerCase().includes(searchLower) ||
-      advisor.email?.toLowerCase().includes(searchLower) ||
-      advisor.department?.toLowerCase().includes(searchLower)
+      req.name?.toLowerCase().includes(searchLower) ||
+      req.description?.toLowerCase().includes(searchLower) ||
+      req.type?.toLowerCase().includes(searchLower)
     );
   });
 
   const indexOfLastRow = currentPage * rowsPerPage;
   const indexOfFirstRow = indexOfLastRow - rowsPerPage;
-  const currentRows = filteredAdvisors.slice(indexOfFirstRow, indexOfLastRow);
-  const totalPages = Math.ceil(filteredAdvisors.length / rowsPerPage);
+  const currentRows = filteredRequirements.slice(indexOfFirstRow, indexOfLastRow);
+  const totalPages = Math.ceil(filteredRequirements.length / rowsPerPage);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   //  Handlers 
 
   const handleSave = async () => {
-    //  VALIDATION START 
-    let isValid = true;
-    let errorMessage = 'Please fill in all required fields.';
-
-    // Check all fields
-    if (!formData.name.trim() || !formData.email.trim() || !formData.department.trim()) {
-        isValid = false;
-    }
-
-    if (!isValid) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Missing Fields',
-        text: errorMessage,
-        confirmButtonColor: '#3085d6'
-      });
-      return;
+    //  VALIDATION 
+    if (!formData.name.trim()) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Missing Fields',
+            text: 'Requirement Name is required.',
+            confirmButtonColor: '#3085d6'
+        });
+        return;
     }
 
     try {
       if (editing) {
+        // Edit
         await axios.put(API_URL, {
-          id: editing.advisor_id,
-          full_name: formData.name, 
-          email: formData.email,
-          department: formData.department,
-          status: formData.status 
+          id: editing.id,
+          name: formData.name,
+          description: formData.description,
+          type: formData.type
         });
         Swal.fire({
           icon: 'success',
           title: 'Updated!',
-          text: 'Advisor updated successfully!',
+          text: 'Requirement updated successfully!',
           timer: 1500,
           showConfirmButton: false
         });
       } else {
-        // Add new advisor
-        const res = await axios.post(API_URL, {
-          full_name: formData.name, // Changed from 'name' to 'full_name' for consistency
-          name: formData.name, // Keeping 'name' as fallback if backend expects it for POST
-          email: formData.email,
-          department: formData.department,
-          status: formData.status
+        // Add
+        await axios.post(API_URL, {
+          name: formData.name,
+          description: formData.description,
+          type: formData.type
         });
         Swal.fire({
           icon: 'success',
           title: 'Added!',
-          text: res.data.message || 'Advisor added successfully!',
+          text: 'Requirement added successfully!',
           timer: 1500,
           showConfirmButton: false
         });
       }
 
-      fetchAdvisors();
+      fetchRequirements();
       setShowModal(false);
       resetForm();
     } catch (err) {
-      console.error("Error saving advisor:", err);
+      console.error("Error saving requirement:", err);
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: err.response?.data?.message || "Failed to save advisor.",
+        text: err.response?.data?.message || "Failed to save requirement.",
       });
     }
   };
@@ -163,30 +155,37 @@ function AdminAdvisors() {
     if (result.isConfirmed) {
       try {
         const res = await axios.delete(API_URL, { data: { id } });
-        Swal.fire(
-          'Deleted!',
-          res.data.message || 'Advisor has been deleted.',
-          'success'
-        );
-        fetchAdvisors();
+        if (res.data.success) {
+            Swal.fire(
+                'Deleted!',
+                'Requirement has been deleted.',
+                'success'
+            );
+            fetchRequirements();
+        } else {
+            Swal.fire(
+                'Error!',
+                res.data.message || "Failed to delete.",
+                'error'
+            );
+        }
       } catch (err) {
-        console.error("Error deleting advisor:", err);
+        console.error("Error deleting requirement:", err);
         Swal.fire(
           'Error!',
-          'Failed to delete advisor.',
+          'Failed to delete requirement.',
           'error'
         );
       }
     }
   };
 
-  const handleEdit = (advisor) => {
-    setEditing(advisor);
+  const handleEdit = (req) => {
+    setEditing(req);
     setFormData({
-      name: advisor.full_name || "",
-      email: advisor.email || "",
-      department: advisor.department || "",
-      status: advisor.user_status || "Active",
+      name: req.name || "",
+      description: req.description || "",
+      type: req.type || "Mandatory",
     });
     setShowModal(true);
   };
@@ -195,9 +194,8 @@ function AdminAdvisors() {
     setEditing(null);
     setFormData({
       name: "",
-      email: "",
-      department: "",
-      status: "Active",
+      description: "",
+      type: "Mandatory",
     });
   };
 
@@ -212,17 +210,14 @@ function AdminAdvisors() {
           
           {/* Stats Row */}
           <Row className="g-4 mb-4">
-            <Col xl={3} md={6}>
-               <SummaryCard title="Total Advisors" count={stats.total} color="primary" icon={PersonBadgeFill} />
+            <Col xl={4} md={6}>
+               <SummaryCard title="Total Requirements" count={stats.total} color="primary" icon={ListCheck} />
             </Col>
-            <Col xl={3} md={6}>
-               <SummaryCard title="Active" count={stats.active} color="success" icon={CheckCircleFill} />
+            <Col xl={4} md={6}>
+               <SummaryCard title="Mandatory" count={stats.mandatory} color="danger" icon={ExclamationCircleFill} />
             </Col>
-            <Col xl={3} md={6}>
-               <SummaryCard title="Inactive" count={stats.inactive} color="secondary" icon={XCircleFill} />
-            </Col>
-            <Col xl={3} md={6}>
-               <SummaryCard title="Departments" count={stats.departments} color="info" icon={BuildingFill} />
+            <Col xl={4} md={6}>
+               <SummaryCard title="Optional" count={stats.optional} color="info" icon={CheckCircleFill} />
             </Col>
           </Row>
 
@@ -233,7 +228,7 @@ function AdminAdvisors() {
             <div className="card-header bg-white py-4 px-4 border-0">
                <Row className="align-items-center g-3">
                   <Col md={4}>
-                     <h5 className="mb-0 fw-bold text-dark">Advisor Management</h5>
+                     <h5 className="mb-0 fw-bold text-dark">Manage Requirements</h5>
                   </Col>
                   
                   <Col md={8}>
@@ -244,7 +239,7 @@ function AdminAdvisors() {
                             className="d-flex align-items-center"
                             onClick={() => { resetForm(); setShowModal(true); }}
                         >
-                            <PlusLg className="me-2" /> Add Advisor
+                            <PlusLg className="me-2" /> Add Requirement
                         </Button>
 
                         <InputGroup style={{ maxWidth: "250px" }}>
@@ -252,7 +247,7 @@ function AdminAdvisors() {
                               <Search className="text-muted" size={14} />
                            </InputGroup.Text>
                            <Form.Control
-                              placeholder="Search advisor..."
+                              placeholder="Search..."
                               className="bg-light border-start-0 ps-0"
                               value={searchTerm}
                               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
@@ -268,45 +263,41 @@ function AdminAdvisors() {
               <Table hover className="table align-middle mb-0">
                 <thead className="bg-light">
                   <tr>
-                    <th className="ps-4 text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Advisor Info</th>
-                    <th className="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Department</th>
-                    <th className="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Status</th>
+                    <th className="ps-4 text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Requirement Name</th>
+                    <th className="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Description</th>
+                    <th className="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Type</th>
                     <th className="text-center text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentRows.length > 0 ? (
-                    currentRows.map((a) => (
-                      <tr key={a.advisor_id}>
+                    currentRows.map((req) => (
+                      <tr key={req.id}>
                         <td className="ps-4">
-                          <div className="d-flex flex-column">
-                            <h6 className="mb-0 text-sm fw-bold text-dark">{a.full_name}</h6>
-                            <p className="text-xs text-secondary mb-0">{a.email}</p>
-                          </div>
+                          <h6 className="mb-0 text-sm fw-bold text-dark">{req.name}</h6>
                         </td>
                         <td>
-                          <div className="d-flex align-items-center">
-                             <BuildingFill className="me-2 text-secondary" size={12}/>
-                             <span className="text-sm text-secondary font-weight-bold">{a.department || "—"}</span>
-                          </div>
+                          <p className="text-xs text-secondary mb-0 text-truncate" style={{maxWidth: "300px"}} title={req.description}>
+                            {req.description || "No description"}
+                          </p>
                         </td>
                         <td>
-                            <Badge bg={a.user_status === "Active" ? "success" : "secondary"}>
-                                {a.user_status}
+                            <Badge bg={req.type === "Mandatory" ? "danger" : "info"}>
+                                {req.type}
                             </Badge>
                         </td>
                         <td className="text-center">
-                          <Button size="sm" variant="light" className="text-warning me-2" onClick={() => handleEdit(a)} title="Edit">
+                          <Button size="sm" variant="light" className="text-warning me-2" onClick={() => handleEdit(req)} title="Edit">
                             <PencilSquare />
                           </Button>
-                          <Button size="sm" variant="light" className="text-danger" onClick={() => handleDelete(a.advisor_id)} title="Delete">
+                          <Button size="sm" variant="light" className="text-danger" onClick={() => handleDelete(req.id)} title="Delete">
                             <Trash />
                           </Button>
                         </td>
                       </tr>
                     ))
                   ) : (
-                    <tr><td colSpan="4" className="text-center py-5 text-muted">No advisors found.</td></tr>
+                    <tr><td colSpan="4" className="text-center py-5 text-muted">No requirements found.</td></tr>
                   )}
                 </tbody>
               </Table>
@@ -315,7 +306,7 @@ function AdminAdvisors() {
             {/* Pagination */}
             <div className="card-footer bg-white py-3 px-4 border-top-0 d-flex flex-column flex-md-row justify-content-between align-items-center">
                <div className="text-muted small mb-2 mb-md-0">
-                  Showing <strong>{indexOfFirstRow + 1}</strong> to <strong>{Math.min(indexOfLastRow, filteredAdvisors.length)}</strong> of <strong>{filteredAdvisors.length}</strong> entries
+                  Showing <strong>{indexOfFirstRow + 1}</strong> to <strong>{Math.min(indexOfLastRow, filteredRequirements.length)}</strong> of <strong>{filteredRequirements.length}</strong> entries
                </div>
                
                <div className="d-flex gap-1">
@@ -345,43 +336,34 @@ function AdminAdvisors() {
         {/* Add/Edit Modal */}
         <Modal show={showModal} onHide={() => setShowModal(false)} centered>
             <Modal.Header closeButton>
-                <Modal.Title>{editing ? "Edit Advisor" : "Add Advisor"}</Modal.Title>
+                <Modal.Title>{editing ? "Edit Requirement" : "Add Requirement"}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
                 <Form>
                     <Form.Group className="mb-3">
-                        <Form.Label>Full Name <span className="text-danger">*</span></Form.Label>
+                        <Form.Label>Requirement Name <span className="text-danger">*</span></Form.Label>
                         <Form.Control 
                             value={formData.name} 
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
-                            placeholder="Enter full name"
+                            placeholder="e.g., Accomplishment Report"
                             required
                         />
                     </Form.Group>
                     <Form.Group className="mb-3">
-                        <Form.Label>Email <span className="text-danger">*</span></Form.Label>
+                        <Form.Label>Description</Form.Label>
                         <Form.Control 
-                            type="email" 
-                            value={formData.email} 
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
-                            placeholder="Enter email address"
-                            required
+                            as="textarea" 
+                            rows={3}
+                            value={formData.description} 
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
+                            placeholder="Brief description of the requirement"
                         />
                     </Form.Group>
                     <Form.Group className="mb-3">
-                        <Form.Label>Department <span className="text-danger">*</span></Form.Label>
-                        <Form.Control 
-                            value={formData.department} 
-                            onChange={(e) => setFormData({ ...formData, department: e.target.value })} 
-                            placeholder="Enter department"
-                            required
-                        />
-                    </Form.Group>
-                    <Form.Group className="mb-3">
-                        <Form.Label>Status</Form.Label>
-                        <Form.Select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
-                            <option>Active</option>
-                            <option>Deactivated</option>
+                        <Form.Label>Type</Form.Label>
+                        <Form.Select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
+                            <option value="Mandatory">Mandatory</option>
+                            <option value="Optional">Optional</option>
                         </Form.Select>
                     </Form.Group>
                 </Form>
@@ -397,4 +379,4 @@ function AdminAdvisors() {
   );
 }
 
-export default AdminAdvisors;
+export default AdminRequirements;
