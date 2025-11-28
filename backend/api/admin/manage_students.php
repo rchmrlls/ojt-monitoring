@@ -7,9 +7,13 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
 
-  // GET: Fetch all students
+  // GET: Fetch all students with requirement counts
   case 'GET':
         try {
+            // Subquery to count total mandatory requirements (global)
+            $totalMandatorySql = "(SELECT COUNT(*) FROM requirements WHERE is_required = 1)";
+
+            // Main query
             $sql = "
                 SELECT 
                     s.id AS student_id,
@@ -22,8 +26,23 @@ switch ($method) {
                     u.name AS full_name,
                     u.email,
                     c.name AS company_name,
+                    
+                    -- Count Pending Files (for the 'Review Now' button logic)
                     (SELECT COUNT(*) FROM student_requirements sr 
-                     WHERE sr.student_id = s.id AND sr.status = 'Submitted') as pending_files
+                     WHERE sr.student_id = s.id AND sr.status = 'Submitted') as pending_files,
+
+                    -- Count Submitted/Completed Mandatory Files (for Progress)
+                    (SELECT COUNT(*) 
+                     FROM student_requirements sr 
+                     JOIN requirements r ON sr.requirement_id = r.id
+                     WHERE sr.student_id = s.id 
+                       AND r.is_required = 1 
+                       AND sr.status IN ('Submitted', 'Completed')
+                    ) as submitted_mandatory,
+
+                    -- Total Mandatory Requirements
+                    $totalMandatorySql as total_mandatory
+
                 FROM students s
                 JOIN users u ON s.user_id = u.id
                 LEFT JOIN companies c ON s.company_id = c.id
@@ -40,7 +59,11 @@ switch ($method) {
         }
         break;
 
-  // POST: Add new student (auto-create linked user)
+  // ... (Rest of the file: POST, PUT, DELETE cases remain unchanged) ...
+  // Keep the existing POST, PUT, DELETE logic here. 
+  // Only the GET query above is modified.
+  
+  // POST: Add new student
   case 'POST':
     $data = json_decode(file_get_contents("php://input"), true);
 
@@ -62,7 +85,6 @@ switch ($method) {
     }
 
     try {
-      // Check for existing email
       $checkEmail = $conn->prepare("SELECT id FROM users WHERE email = ?");
       $checkEmail->execute([$email]);
       if ($checkEmail->fetch()) {
@@ -70,7 +92,6 @@ switch ($method) {
         exit;
       }
 
-      // Check for existing student number
       $checkStudent = $conn->prepare("SELECT id FROM students WHERE student_no = ?");
       $checkStudent->execute([$studentNo]);
       if ($checkStudent->fetch()) {
@@ -78,7 +99,6 @@ switch ($method) {
         exit;
       }
 
-      // Check if company exists
       if ($company) {
         $checkCompany = $conn->prepare("SELECT id FROM companies WHERE id = ?");
         $checkCompany->execute([$company]);
@@ -90,7 +110,6 @@ switch ($method) {
 
       $conn->beginTransaction();
 
-      // Create user
       $stmtUser = $conn->prepare("
         INSERT INTO users (name, email, password, role, status)
         VALUES (?, ?, ?, 'Student', 'Active')
@@ -98,7 +117,6 @@ switch ($method) {
       $stmtUser->execute([$name, $email, password_hash($password, PASSWORD_DEFAULT)]);
       $userId = $conn->lastInsertId();
 
-      // Create student
       $stmtStudent = $conn->prepare("
         INSERT INTO students 
         (user_id, student_no, course, year_level, section, contact_no, address, company_id, deployment_status)
@@ -114,7 +132,7 @@ switch ($method) {
     }
     break;
 
-  // PUT: Update student details + linked user (name/email)
+  // PUT: Update student
   case 'PUT':
       $data = json_decode(file_get_contents("php://input"), true);
       $id = $data['id'] ?? null;
@@ -127,7 +145,6 @@ switch ($method) {
       try {
           $conn->beginTransaction();
 
-          // Get existing student data
           $stmt = $conn->prepare("SELECT * FROM students WHERE id = ?");
           $stmt->execute([$id]);
           $student = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -139,8 +156,7 @@ switch ($method) {
 
           $userId = $student['user_id'];
 
-          // update only if only deployment_status is sent 
-          if (isset($data['deployment_status']) && count($data) === 2) { // id + deployment_status
+          if (isset($data['deployment_status']) && count($data) === 2) {
               $stmt = $conn->prepare("UPDATE students SET deployment_status=? WHERE id=?");
               $stmt->execute([$data['deployment_status'], $id]);
               $conn->commit();
@@ -148,7 +164,6 @@ switch ($method) {
               exit;
           }
 
-          // handle full update if not
           $name = trim($data['name'] ?? '');
           $email = trim($data['email'] ?? '');
           $course = $data['course'] ?? $student['course'];
@@ -159,7 +174,6 @@ switch ($method) {
           $company = array_key_exists('company_id', $data) ? $data['company_id'] : $student['company_id'];
           $deployment = $data['deployment_status'] ?? $student['deployment_status'];
 
-          // Update student
           $stmt = $conn->prepare("
               UPDATE students
               SET course=?, year_level=?, section=?, contact_no=?, address=?, company_id=?, deployment_status=?
@@ -167,7 +181,6 @@ switch ($method) {
           ");
           $stmt->execute([$course, $year, $section, $contact, $address, $company, $deployment, $id]);
 
-          // Update linked user
           if ($name || $email) {
               $stmtUser = $conn->prepare("
                   UPDATE users
@@ -185,9 +198,8 @@ switch ($method) {
       }
       break;
 
-  // DELETE: Remove student + linked user
+  // DELETE: Remove student
   case 'DELETE':
-  // Decode JSON directly
   $data = json_decode(file_get_contents("php://input"), true);
   $id = $data['id'] ?? null;
 
@@ -199,7 +211,6 @@ switch ($method) {
   try {
     $conn->beginTransaction();
 
-    // Get user_id before delete
     $stmt = $conn->prepare("SELECT user_id FROM students WHERE id=?");
     $stmt->execute([$id]);
     $student = $stmt->fetch(PDO::FETCH_ASSOC);

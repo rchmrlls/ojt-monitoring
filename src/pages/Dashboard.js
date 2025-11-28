@@ -24,34 +24,47 @@ const Dashboard = () => {
   const [requirements, setRequirements] = useState([]);
   const [showReqModal, setShowReqModal] = useState(false);
 
-  // Fetch Data
+  // --- FETCH DATA FUNCTION (Defined outside useEffect for Polling) ---
+  const fetchData = async (isBackground = false) => {
+    try {
+      // Only show loading spinner on the very first load
+      if (!isBackground) setLoading(true);
+
+      const [studentsRes, advisorsRes, companiesRes] = await Promise.all([
+        api.get("/admin/manage_students.php"),
+        api.get("/admin/manage_advisors.php"),
+        api.get("/admin/manage_companies.php"),
+      ]);
+
+      const studentsData = studentsRes.data?.data || [];
+      setStudents(studentsData);
+
+      const totalPending = studentsData.reduce((sum, stu) => sum + (parseInt(stu.pending_files) || 0), 0);
+
+      setStats({
+        totalStudents: studentsData.length,
+        pendingReviews: totalPending,
+        advisors: advisorsRes.data?.data?.length || 0,
+        companies: companiesRes.data?.data?.length || 0,
+      });
+    } catch (err) {
+      console.error("Error fetching dashboard data:", err);
+    } finally {
+      if (!isBackground) setLoading(false);
+    }
+  };
+
+  // --- USE EFFECT: Initial Load + Auto-Refresh Interval ---
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [studentsRes, advisorsRes, companiesRes] = await Promise.all([
-          api.get("/admin/manage_students.php"),
-          api.get("/admin/manage_advisors.php"),
-          api.get("/admin/manage_companies.php"),
-        ]);
+    fetchData(); // 1. Initial Fetch
 
-        const studentsData = studentsRes.data?.data || [];
-        setStudents(studentsData);
+    // 2. Set up Polling (Auto-refresh every 5 seconds)
+    const interval = setInterval(() => {
+        fetchData(true); // true = background update (no spinner)
+    }, 5000);
 
-        const totalPending = studentsData.reduce((sum, stu) => sum + (parseInt(stu.pending_files) || 0), 0);
-
-        setStats({
-          totalStudents: studentsData.length,
-          pendingReviews: totalPending,
-          advisors: advisorsRes.data?.data?.length || 0,
-          companies: companiesRes.data?.data?.length || 0,
-        });
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching dashboard data:", err);
-        setLoading(false);
-      }
-    };
-    fetchData();
+    // 3. Cleanup on component unmount
+    return () => clearInterval(interval);
   }, []);
   
   // Filter Data based on Search
@@ -86,22 +99,28 @@ const Dashboard = () => {
       } catch (err) { console.error("Error loading requirements:", err); }
   };
 
-  const handleStatusUpdate = async (requirementId, newStatus) => {
+  const handleStatusUpdate = async (requirementId, submissionId, newStatus) => {
      if (!selectedStudent) return;
     try {
       const res = await api.put("/admin/manage_requirements.php", {
         student_id: selectedStudent.student_id,
         requirement_id: requirementId,
+        submission_id: submissionId,
         status: newStatus,
       });
-      if (res.data.success) { viewRequirements(selectedStudent); } 
+      if (res.data.success) { 
+          viewRequirements(selectedStudent); // Refresh modal data
+          fetchData(true); // Refresh background stats immediately
+      } 
       else { alert("Failed to update status: " + res.data.message); }
     } catch (err) { console.error("Error updating status:", err); }
   };
 
+  // --- Progress Calculation (Mandatory Only) ---
   const getProgress = (reqs) => {
-    const total = reqs.length || 0;
-    const completed = reqs.filter((r) => r.status === "Completed" || r.status === "Submitted").length;
+    const mandatoryReqs = reqs.filter(r => parseInt(r.is_required) === 1);
+    const total = mandatoryReqs.length || 0;
+    const completed = mandatoryReqs.filter((r) => r.status === "Completed" || r.status === "Submitted").length;
     return total ? Math.round((completed / total) * 100) : 0;
   };
 
@@ -205,47 +224,63 @@ const Dashboard = () => {
                 </thead>
                 <tbody>
                   {currentRows.length > 0 ? (
-                    currentRows.map((stu) => (
-                      <tr key={stu.student_id} className={stu.pending_files > 0 ? "bg-danger bg-opacity-10" : ""}>
-                        <td className="ps-4">
-                          <div className="d-flex flex-column justify-content-center">
-                            <h6 className="mb-0 text-sm fw-bold text-dark">{stu.full_name}</h6>
-                            <p className="text-xs text-secondary mb-0">{stu.email}</p>
-                          </div>
-                        </td>
-                        <td>
-                          <p className="text-xs font-weight-bold mb-0 text-dark">{stu.course}</p>
-                          <p className="text-xs text-secondary mb-0">{stu.year_level} - {stu.section}</p>
-                        </td>
-                        <td>
-                          <div className="d-flex align-items-center">
-                             <BuildingFill className="me-2 text-secondary" size={12}/>
-                             <span className="text-sm text-secondary font-weight-bold">{stu.company_name || "Not Assigned"}</span>
-                          </div>
-                        </td>
-                        <td>
-                          {stu.pending_files > 0 ? (
-                            <span className="badge badge-soft-danger d-inline-flex align-items-center">
-                              <ClockFill className="me-1" /> {stu.pending_files} Pending Review
-                            </span>
-                          ) : (
-                            <span className="badge badge-soft-success d-inline-flex align-items-center">
-                              <CheckCircleFill className="me-1" /> Up to date
-                            </span>
-                          )}
-                        </td>
-                        <td className="text-center">
-                          <Button 
-                            size="sm" 
-                            variant={stu.pending_files > 0 ? "primary" : "light"} 
-                            className="rounded-pill px-3 fw-bold" 
-                            onClick={() => viewRequirements(stu)}
-                          >
-                            {stu.pending_files > 0 ? "Review Now" : "View Files"}
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
+                    currentRows.map((stu) => {
+                      // Calculate Mandatory Progress
+                      const submitted = parseInt(stu.submitted_mandatory) || 0;
+                      const total = parseInt(stu.total_mandatory) || 0;
+                      const isComplete = total > 0 && submitted >= total;
+
+                      return (
+                        <tr key={stu.student_id} className={stu.pending_files > 0 ? "bg-danger bg-opacity-10" : ""}>
+                          <td className="ps-4">
+                            <div className="d-flex flex-column justify-content-center">
+                              <h6 className="mb-0 text-sm fw-bold text-dark">{stu.full_name}</h6>
+                              <p className="text-xs text-secondary mb-0">{stu.email}</p>
+                            </div>
+                          </td>
+                          <td>
+                            <p className="text-xs font-weight-bold mb-0 text-dark">{stu.course}</p>
+                            <p className="text-xs text-secondary mb-0">{stu.year_level} - {stu.section}</p>
+                          </td>
+                          <td>
+                            <div className="d-flex align-items-center">
+                              <BuildingFill className="me-2 text-secondary" size={12}/>
+                              <span className="text-sm text-secondary font-weight-bold">{stu.company_name || "Not Assigned"}</span>
+                            </div>
+                          </td>
+                          <td>
+                            {/* --- SUBMISSION STATUS DISPLAY --- */}
+                            {isComplete ? (
+                              <span className="badge bg-success px-3 py-2 rounded-pill shadow-sm">
+                                <CheckCircleFill className="me-1 mb-1"/> COMPLETE
+                              </span>
+                            ) : (
+                              <div className="d-flex flex-column">
+                                <div className="d-flex align-items-center">
+                                  <h5 className="mb-0 fw-bold text-primary me-2">{submitted} <span className="text-muted text-xs">/</span> {total}</h5>
+                                  {stu.pending_files > 0 && (
+                                    <span className="badge bg-warning text-dark ms-2 border border-warning" style={{fontSize: '0.65rem'}}>
+                                      {stu.pending_files} Pending
+                                    </span>
+                                  )}
+                                </div>
+                                <small className="text-uppercase text-secondary fw-bold" style={{fontSize: '0.6rem', letterSpacing: '0.5px'}}>Mandatory Files</small>
+                              </div>
+                            )}
+                          </td>
+                          <td className="text-center">
+                            <Button 
+                              size="sm" 
+                              variant={stu.pending_files > 0 ? "primary" : "light"} 
+                              className="rounded-pill px-3 fw-bold shadow-sm" 
+                              onClick={() => viewRequirements(stu)}
+                            >
+                              {stu.pending_files > 0 ? "Review Now" : "View Files"}
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr><td colSpan="5" className="text-center py-5 text-muted">No students found matching your search.</td></tr>
                   )}
@@ -270,7 +305,6 @@ const Dashboard = () => {
                      <ChevronLeft size={12} />
                   </Button>
                   
-                  {/* Page Numbers */}
                   {[...Array(totalPages)].map((_, index) => (
                      <Button
                         key={index}
@@ -331,20 +365,26 @@ const Dashboard = () => {
                     <tbody>
                       {requirements.map((req) => (
                         <tr key={req.requirement_id} className={req.status === "Submitted" ? "table-warning" : ""}>
-                          <td className="fw-medium">{req.requirement_name}</td>
+                          <td className="fw-medium">
+                            {req.requirement_name}
+                            {parseInt(req.is_required) === 0 && (
+                                <span className="badge bg-info ms-2" style={{fontSize: '0.6em'}}>Optional</span>
+                            )}
+                          </td>
                           <td>
                             <span className={`badge ${
                                 req.status === "Completed" ? "bg-success" : 
-                                req.status === "Submitted" ? "bg-warning text-dark" : "bg-secondary"
+                                req.status === "Submitted" ? "bg-warning text-dark" : 
+                                req.status === "Rejected" ? "bg-danger" : "bg-secondary"
                               } rounded-pill px-3`}>
                               {req.status}
                             </span>
                           </td>
                           <td className="text-muted small">
-                            {req.status === "Pending" ? "—" : formatDate(req.uploaded_at || req.submitted_at)}
+                            {req.status === "Pending" || req.status === "Rejected" ? "—" : formatDate(req.uploaded_at || req.submitted_at)}
                           </td>
                           <td>
-                             {req.file_path ? (
+                             {req.file_path && req.status !== "Rejected" ? (
                               <a href={`http://localhost/ojt_monitoring/backend/${req.file_path}`} target="_blank" rel="noreferrer" className="btn btn-sm btn-white border shadow-sm text-primary fw-bold">
                                 <FileEarmarkTextFill className="me-2"/>
                                 {getFileName(req.file_path)}
@@ -356,7 +396,7 @@ const Dashboard = () => {
                               size="sm" 
                               value={req.status} 
                               className={`border-0 fw-bold ${req.status === 'Submitted' ? 'bg-warning bg-opacity-25 text-dark' : 'bg-light text-secondary'}`}
-                              onChange={(e) => handleStatusUpdate(req.requirement_id, e.target.value)}
+                              onChange={(e) => handleStatusUpdate(req.requirement_id, req.submission_id, e.target.value)}
                             >
                               <option value="Pending">Pending</option>
                               <option value="Submitted">Submitted</option>

@@ -11,12 +11,12 @@ if (!$student_id) {
 }
 
 try {
-  // Get all requirements with student's status (if any)
   $stmt = $conn->prepare("
     SELECT 
       r.id AS requirement_id,
       r.name AS requirement_name,
       r.description,
+      r.is_required,
       COALESCE(sr.status, 'Pending') AS status,
       sr.file_path,
       sr.uploaded_at,

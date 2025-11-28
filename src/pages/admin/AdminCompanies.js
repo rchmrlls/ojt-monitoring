@@ -194,21 +194,19 @@ function AdminCompanies() {
   return (
     <div className="d-flex" style={{ backgroundColor: "#f8f9fa" }}>
       <Sidebar />
-      
       <div className="flex-grow-1" style={{ marginLeft: "260px", minHeight: "100vh", padding: "0" }}>
         <Navbar user={user} />
-        
         <div className="container-fluid px-4">
           
           {/* Stats Row */}
           <Row className="g-4 mb-4">
-            <Col xl={4} md={6}>
+            <Col xl={4}>
                <SummaryCard title="Total Companies" count={stats.total} color="primary" icon={BuildingFill} />
             </Col>
-            <Col xl={4} md={6}>
+            <Col xl={4}>
                <SummaryCard title="Active Partners" count={stats.active} color="success" icon={CheckCircleFill} />
             </Col>
-            <Col xl={4} md={6}>
+            <Col xl={4}>
                <SummaryCard title="Inactive" count={stats.inactive} color="secondary" icon={XCircleFill} />
             </Col>
           </Row>
@@ -328,7 +326,6 @@ function AdminCompanies() {
                </div>
             </div>
           </div>
-
         </div>
 
         {/* Add/Edit Modal */}

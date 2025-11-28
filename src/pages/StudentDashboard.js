@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Table, ProgressBar, Button, Row, Col, Form, Badge } from "react-bootstrap";
-import { 
-  PersonFill, 
-  BuildingFill, 
-  EnvelopeFill, 
-  CardChecklist, 
-  FileEarmarkTextFill, 
-  CheckCircleFill, 
-  CloudUploadFill 
-} from "react-bootstrap-icons";
+import { PersonFill, BuildingFill, EnvelopeFill, CardChecklist, FileEarmarkTextFill, CheckCircleFill, CloudUploadFill } from "react-bootstrap-icons";
 import axios from "axios";
 import Swal from "sweetalert2";
 import Navbar from "../components/Navbar";
@@ -26,7 +18,7 @@ const StudentDashboard = () => {
 
   const storedUser = JSON.parse(localStorage.getItem("user"));
 
-  //  FETCH LOGIC
+  // 1. GET STUDENT ID (Runs once on mount)
   useEffect(() => {
     const fetchStudentId = async () => {
       if (!storedUser) {
@@ -57,34 +49,50 @@ const StudentDashboard = () => {
     fetchStudentId();
   }, [storedUser]);
 
+  // 2. FETCH DATA FUNCTION (Standalone for Polling)
+  const fetchDashboardData = async (isBackground = false) => {
+    if (!studentId) return;
+
+    // Only show loading spinner on first load
+    if (!isBackground) setLoading(true);
+
+    try {
+      const [profileRes, reqRes] = await Promise.all([
+        axios.get(`${API_BASE}/student/get_profile.php`, { params: { id: studentId } }),
+        axios.get(`${API_BASE}/student/get_requirements.php`, { params: { student_id: studentId } }),
+      ]);
+
+      if (profileRes.data.success) setStudent(profileRes.data.data);
+      if (reqRes.data.success) {
+        setRequirements(reqRes.data.data);
+        calculateProgress(reqRes.data.data);
+      }
+    } catch (err) {
+      console.error("Error loading dashboard:", err);
+    } finally {
+      if (!isBackground) setLoading(false);
+    }
+  };
+
+  // 3. POLLING (Run fetch every 5 seconds)
   useEffect(() => {
     if (!studentId) return;
 
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [profileRes, reqRes] = await Promise.all([
-          axios.get(`${API_BASE}/student/get_profile.php`, { params: { id: studentId } }),
-          axios.get(`${API_BASE}/student/get_requirements.php`, { params: { student_id: studentId } }),
-        ]);
+    fetchDashboardData(); // Initial Fetch
 
-        if (profileRes.data.success) setStudent(profileRes.data.data);
-        if (reqRes.data.success) {
-          setRequirements(reqRes.data.data);
-          calculateProgress(reqRes.data.data);
-        }
-      } catch (err) {
-        console.error("Error loading dashboard:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    const interval = setInterval(() => {
+        fetchDashboardData(true); // Silent Fetch
+    }, 5000);
+
+    return () => clearInterval(interval); // Cleanup
   }, [studentId]);
 
+
+  // Only count Mandatory requirements (is_required == 1)
   const calculateProgress = (reqs) => {
-    const total = reqs.length || 0;
-    const completed = reqs.filter(r => r.status === "Completed" || r.status === "Submitted").length;
+    const mandatoryReqs = reqs.filter(r => parseInt(r.is_required) === 1);
+    const total = mandatoryReqs.length || 0;
+    const completed = mandatoryReqs.filter(r => r.status === "Completed" || r.status === "Submitted").length;
     setProgress(total ? Math.round((completed / total) * 100) : 0);
   };
 
@@ -139,18 +147,8 @@ const StudentDashboard = () => {
           showConfirmButton: false
         });
 
-        const updated = requirements.map(r =>
-          r.requirement_id === requirement_id 
-            ? { 
-                ...r, 
-                status: "Submitted", 
-                file_path: res.data.file_path,
-                uploaded_at: new Date().toISOString() 
-              } 
-            : r
-        );
-        setRequirements(updated);
-        calculateProgress(updated);
+        // Refresh data immediately to show new status
+        fetchDashboardData(true); 
       } else {
         Swal.fire({
           icon: "error",
@@ -251,7 +249,7 @@ const StudentDashboard = () => {
           </Col>
         </Row>
 
-        {/* ROW 2: Requirements Table (Standard Bootstrap Table) */}
+        {/* ROW 2: Requirements Table */}
         <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
            <div className="card-header bg-white py-3 px-4 border-0 d-flex justify-content-between align-items-center">
               <div className="d-flex align-items-center">
@@ -260,7 +258,6 @@ const StudentDashboard = () => {
               </div>
            </div>
 
-           {/* MODIFIED: Added striped and bordered props */}
            <Table striped bordered hover responsive className="align-middle mb-0">
               <thead className="bg-light">
                  <tr>
@@ -277,31 +274,32 @@ const StudentDashboard = () => {
                        <tr key={req.requirement_id}>
                           <td className="ps-4 fw-medium text-dark">
                              {req.requirement_name}
+                             {parseInt(req.is_required) === 0 && <Badge bg="info" className="ms-2" style={{fontSize: '0.6rem'}}>Optional</Badge>}
                           </td>
                           <td className="text-muted small" style={{maxWidth: '250px'}}>
                              {req.description || "—"}
                           </td>
                           <td className="text-center">
                              <Badge 
-                                bg={req.status === "Completed" ? "success" : req.status === "Submitted" ? "primary" : "secondary"} 
+                                bg={req.status === "Completed" ? "success" : req.status === "Submitted" ? "primary" : req.status === "Rejected" ? "danger" : "secondary"} 
                                 className="rounded-pill px-3 fw-normal"
                              >
                                 {req.status || "Pending"}
                              </Badge>
                           </td>
                           <td className="text-muted small">
-                             {formatDate(req.uploaded_at)}
+                             {req.status === "Pending" || req.status === "Rejected" ? "—" : formatDate(req.uploaded_at)}
                           </td>
                           <td>
                              <div className="d-flex flex-column gap-2">
-                                {/* File Link */}
-                                {req.file_path && (
+                                {/* File Link - Hide if Rejected */}
+                                {req.file_path && req.status !== "Rejected" && (
                                    <a href={`${FILE_BASE_URL}/${req.file_path}`} target="_blank" rel="noreferrer" className="text-decoration-none small fw-bold text-primary d-flex align-items-center">
                                       <FileEarmarkTextFill className="me-1" /> {getFileName(req.file_path)}
                                    </a>
                                 )}
 
-                                {/* Upload Input */}
+                                {/* Upload Input - Show if Pending, Rejected, or Submitted (allow re-upload) */}
                                 {req.status !== "Completed" && (
                                    <Form.Group controlId={`upload-${req.requirement_id}`}>
                                       <div className="d-flex align-items-center">
@@ -315,10 +313,18 @@ const StudentDashboard = () => {
                                           />
                                           {uploading && <div className="spinner-border spinner-border-sm text-primary"></div>}
                                       </div>
+                                      {req.status === "Submitted" && (
+                                          <small className="text-muted" style={{fontSize: '0.7em'}}>
+                                              *Upload again to replace current file
+                                          </small>
+                                      )}
                                    </Form.Group>
                                 )}
                                 {req.status === "Completed" && (
                                     <span className="text-success small fw-bold"><CheckCircleFill className="me-1"/>Verified</span>
+                                )}
+                                {req.status === "Submitted" && (
+                                    <span className="text-primary small fw-bold">Submitted</span>
                                 )}
                              </div>
                           </td>

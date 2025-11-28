@@ -346,25 +346,24 @@ function AdminStudents() {
       <Sidebar />
       
       <div className="flex-grow-1" style={{ marginLeft: "260px", minHeight: "100vh", padding: "0" }}>
-        {/* FIX: Hardcoded to 'Admin' to match Dashboard.js */}
         <Navbar user={{ name: "Admin" }} />
         
         <div className="container-fluid px-4">
           
           {/* Stats Row */}
           <Row className="g-4 mb-4">
-            <Col xl={3} md={6}>
+            <Col xl={6}>
                <SummaryCard title="Total Students" count={stats.total} color="primary" icon={PeopleFill} />
             </Col>
-            <Col xl={3} md={6}>
+            <Col xl={6}>
                <SummaryCard title="Deployed" count={stats.deployed} color="success" icon={BriefcaseFill} />
             </Col>
-            <Col xl={3} md={6}>
+            {/*<Col xl={4}>
                <SummaryCard title="Pending Files" count={stats.pendingReviews} color="danger" icon={ExclamationCircleFill} />
             </Col>
-            <Col xl={3} md={6}>
-               <SummaryCard title="Completed OJT" count={stats.completed} color="info" icon={PersonBadgeFill} />
-            </Col>
+            <Col xl={4}>
+               <SummaryCard title="Completed Requirements" count={stats.completed} color="info" icon={PersonBadgeFill} />
+            </Col>*/}
           </Row>
 
           {/* Main Table Card */}
